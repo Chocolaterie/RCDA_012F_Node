@@ -52,6 +52,8 @@ app.post('/save-article', (request, response) => {
         }
     }
     // Sinon faire le code pour creer/ajouter un article
+    // -- si jamais voulais simuler un auto increment id
+    // articleJSON.id = l'algo pour auto increment
     DB_ARTICLES.push(articleJSON);
 
     return response.json("Article crée avec succès");
@@ -61,7 +63,7 @@ app.delete('/delete-article/:id', (request, response) => {
     // récupérer un param d'url
     const id = parseInt(request.params.id);
 
-    // si existe on supprime
+    // chercher index du tableau quand l'id d'un article = l'id de l'url
     const foundIndex = DB_ARTICLES.findIndex(article => article.id === id);
 
     // supprimer depuis l'index

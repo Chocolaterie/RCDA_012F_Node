@@ -32,6 +32,12 @@ const Article = mongoose.model(
   "articles"
 );
 
+function performResponseService(response, code, message, data) {
+  console.log(`Code: ${code} | Message : ${message}`);
+  return response.json({ code: code, message: message, data: data });
+}
+
+
 // ------------------------------------------------
 // * ROUTES
 // ------------------------------------------------
@@ -39,7 +45,7 @@ app.get("/articles", async (request, response) => {
   // Récupérer les articles en base
   const articles = await Article.find();
 
-  return response.json(articles);
+  return performResponseService(response, "200", "La liste des articles a été récupérés avec succès", articles);
 });
 
 app.get("/article/:uid", async (request, response) => {
@@ -49,7 +55,13 @@ app.get("/article/:uid", async (request, response) => {
   // Essayer de trouver un article avec l'uid X
   const foundArticle = await Article.findOne({ uid: uidParam });
 
-  return response.json(foundArticle);
+  // RG-002 : 702 
+  if (!foundArticle) {
+    return performResponseService(response, "702", `Impossible de récupérer un article avec l'UID ${uidParam}`, null);
+  }
+
+  // RG-002 : 200
+  return performResponseService(response, "200", `Article récupéré avec succès`, foundArticle);
 });
 
 app.post("/save-article", async (request, response) => {
@@ -58,10 +70,12 @@ app.post("/save-article", async (request, response) => {
 
   // Si l'article existe => Le code pour faire un update/mise à jour
   if (articleJSON.uid) {
+
     // Trouve un article dans la liste (c'est récupérer l'adresse de l'objet)
     const foundArticle = await Article.findOne({ uid: articleJSON.uid });
 
     if (foundArticle) {
+      // updateOne($set: articleJSON)
       foundArticle.title = articleJSON.title;
       foundArticle.content = articleJSON.content;
       foundArticle.author = articleJSON.author;

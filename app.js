@@ -75,6 +75,13 @@ app.post("/save-article", async (request, response) => {
     const foundArticle = await Article.findOne({ uid: articleJSON.uid });
 
     if (foundArticle) {
+      // RG-004 | 701
+      // Trouver un article (sauf l'article à modifier) ayant le même titre que le titre envoyé en JSON
+      const foundArticleByTitle = await Article.findOne({ uid: { $ne : foundArticle.uid }, title: articleJSON.title });
+      if (foundArticleByTitle){
+        return performResponseService(response, "701", `Impossible de modifier un article dont un autre article possède un titre similaire`, foundArticle);
+      }
+
       // updateOne($set: articleJSON)
       foundArticle.title = articleJSON.title;
       foundArticle.content = articleJSON.content;
@@ -83,12 +90,20 @@ app.post("/save-article", async (request, response) => {
       // Persister/Save en base
       await foundArticle.save();
 
-      return response.json("Article modifié avec succès");
+      // RG-004 | 200
+      return performResponseService(response, "200", `Article modifié avec succès`, foundArticle);
     }
   }
   // 2 :: CREATION
   // Sinon faire le code pour creer/ajouter un article
   const article = new Article(articleJSON); // pas encore base (crée en mémoire)
+
+  // RG-003 | 701
+  // Verifier qu'un article ayant le même titre que le titre envoyé en json
+  const foundArticleByTitle = await Article.findOne({ title: articleJSON.title });
+  if (foundArticleByTitle) {
+    return performResponseService(response, "701", `Impossible d'ajouter un article avec un titre déjà existant`, null);
+  }
 
   // generer l'uid
   article.uid = uuid.v4();
@@ -96,7 +111,8 @@ app.post("/save-article", async (request, response) => {
   // persister/save en base
   await article.save();
 
-  return response.json("Article crée avec succès");
+  // RG-003 | 200
+  return performResponseService(response, "200", `Article ajouté avec succès`, article);
 });
 
 app.delete("/delete-article/:uid", async (request, response) => {
@@ -106,12 +122,15 @@ app.delete("/delete-article/:uid", async (request, response) => {
   // Récupérer l'article
   const article = await Article.findOne({ uid: uidParam });
 
-  // Je supprime que si il existe
-  if (article) {
-    await article.deleteOne();
+  // RG-005 | 702
+  if (!article){
+    return performResponseService(response, "702", `Impossible de supprimer un article dont l'UID n'existe pas`, null);
   }
 
-  return response.json(`Article supprimé`);
+  await article.deleteOne();
+
+  // RG-005 | 200
+  return performResponseService(response, "200", `L'article ${uidParam} a été supprimé avec succès`, article);
 });
 
 // Lancer le serveur

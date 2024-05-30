@@ -1,8 +1,11 @@
 const express = require("express");
 const uuid = require("uuid");
+const jwt = require('jsonwebtoken');
 
 // instancier le server
 const app = express();
+
+const SECRET_KEY = "B73C4E1A27C3C935CFBD57B91185E";
 
 // Autoriser a envoyer dans le request body le json
 app.use(express.json());
@@ -32,15 +35,83 @@ const Article = mongoose.model(
   "articles"
 );
 
+const User = mongoose.model(
+  "User",
+  { email: String, password: String },
+  "users"
+);
+
+
 function performResponseService(response, code, message, data) {
   console.log(`Code: ${code} | Message : ${message}`);
   return response.json({ code: code, message: message, data: data });
 }
 
+// ------------------------------------------------
+// * Middleware
+// ------------------------------------------------
+/**
+ * Middleware pour verifier la validité d'un token
+ * @param {*} request La requete
+ * @param {*} response La reponse
+ * @param {*} next Savoir si on passe le mur/le middleware (guard)
+ */
+async function checkTokenMiddleware(request, response, next) {
+
+  // 1 :: Si le token est envoyé ?
+  if (!request.headers.authorization) {
+      return performResponseService(response, "401", "Le token doit être renseigné", null);
+  }
+
+  // 2 :: Tester que le token est valide
+  // -- extraire le token
+  const token = request.headers.authorization.substring(7);
+
+  // Par défaut la validation est incorrect
+  let verifySuccess = false;
+
+  try {
+      await jwt.verify(token, SECRET_KEY, (err, decoded) => {
+          // si pas erreur
+          if (!err){
+              verifySuccess = true;
+          }
+      });
+  } catch (e) { }
+  // -----------------------------------------------
+  // Si il n y'a jamais eu de succès
+  if (!verifySuccess){
+      return performResponseService(response, "402", "Le token n'est pas valide", null);
+  }
+
+  // Par défaut on passe
+  return next();
+}
 
 // ------------------------------------------------
 // * ROUTES
 // ------------------------------------------------
+// Route pour s'authentifier => donc générer un token (jwt)
+app.get("/auth", async (request, response) => {    
+  // Tester connexion
+  const requestJSON = request.body;
+
+  // Pour systeme authentifcation : dans la BDD tu aura une table users avec email|password
+  // 1 :: RG : Si couple email/password pas bon alors return code 702 - Couple email/password incorrecte
+  // -- cherche en BDD un user avec le critere email = email et password = password
+  const loggedUser = await User.findOne({ email: requestJSON.email, password : requestJSON.password});
+
+  // -- si tu trouve pas alors erreur de connexion => 702 - Couple email/password incorrecte
+  if (!loggedUser){
+    return performResponseService(response, "764", "Couple email/mot de passe incorrect", null);
+  }
+
+  // 2 :: Generer un token
+  const token = await jwt.sign({ email : loggedUser.email }, SECRET_KEY, { expiresIn : '1h' });
+
+  return performResponseService(response, "200", "Authentifié(e) avec succès", token);
+});
+
 app.get("/articles", async (request, response) => {
   // Récupérer les articles en base
   const articles = await Article.find();
@@ -64,7 +135,10 @@ app.get("/article/:uid", async (request, response) => {
   return performResponseService(response, "200", `Article récupéré avec succès`, foundArticle);
 });
 
-app.post("/save-article", async (request, response) => {
+/**
+ * Pour creer/modifier un article il faut être connecté(e) (donc un token)
+ */
+app.post("/save-article", checkTokenMiddleware, async (request, response) => {
   // Essaye de récupérer un article existant (à l'aide des données envoyées)
   const articleJSON = request.body;
 
@@ -115,7 +189,10 @@ app.post("/save-article", async (request, response) => {
   return performResponseService(response, "200", `Article ajouté avec succès`, article);
 });
 
-app.delete("/delete-article/:uid", async (request, response) => {
+/**
+ * Pour supprimer un article il faut être connecté(e) (donc un token)
+ */
+app.delete("/delete-article/:uid", checkTokenMiddleware, async (request, response) => {
   // récupérer un param d'url
   const uidParam = request.params.uid;
 

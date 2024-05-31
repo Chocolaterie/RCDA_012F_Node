@@ -1,6 +1,7 @@
 const express = require("express");
 const uuid = require("uuid");
 const jwt = require('jsonwebtoken');
+const cors = require('cors');
 
 // instancier le server
 const app = express();
@@ -9,6 +10,7 @@ const SECRET_KEY = "B73C4E1A27C3C935CFBD57B91185E";
 
 // Autoriser a envoyer dans le request body le json
 app.use(express.json());
+app.use(cors());
 
 // ------------------------------------------------
 // * MongoDB
@@ -92,7 +94,7 @@ async function checkTokenMiddleware(request, response, next) {
 // * ROUTES
 // ------------------------------------------------
 // Route pour s'authentifier => donc générer un token (jwt)
-app.get("/auth", async (request, response) => {    
+app.post("/auth", async (request, response) => {    
   // Tester connexion
   const requestJSON = request.body;
 

@@ -13,6 +13,29 @@ app.use(express.json());
 app.use(cors());
 
 // ------------------------------------------------
+// * Config du logger
+// ------------------------------------------------
+const winston = require('winston');
+
+// -- configuer le logger
+const logger = winston.createLogger({
+  // Log only if level is less than (meaning more severe) or equal to this
+  level: "info",
+  // Use timestamp and printf to create a standard log format
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(
+      (info) => `${info.timestamp} ${info.level}: ${info.message}`
+    )
+  ),
+  // Log to the console and a file
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: "logs/app.log" }),
+  ],
+});
+
+// ------------------------------------------------
 // * MongoDB
 // ------------------------------------------------
 const mongoose = require("mongoose");
@@ -45,7 +68,9 @@ const User = mongoose.model(
 
 
 function performResponseService(response, code, message, data) {
-  console.log(`Code: ${code} | Message : ${message}`);
+  // logger
+  logger.info(`Code: ${code} | Message : ${message}`);
+  // la données
   return response.json({ code: code, message: message, data: data });
 }
 
